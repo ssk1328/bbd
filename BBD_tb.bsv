@@ -9,7 +9,7 @@ import Vector::*;
 module mkBBDTb (Empty);
 
 	Vector#(256, Reg#(MemData)) data_mem <- replicateM ( mkReg(2));	// TODO: Find a function to initilize with different values
-	data_mem[  0] <- mkReg(108);
+	data_mem[ 0] <- mkReg(108);
 	data_mem[ 1] <- mkReg(116);
 	data_mem[ 2] <- mkReg(132);
 	data_mem[ 3] <- mkReg(164);
