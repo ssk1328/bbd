@@ -1,20 +1,21 @@
-package BBD;
+package Funit;
 
 import BBD_ifc::*;
 import BRAM::*;
 import Vector::*;
 import FIFOF::*;
+import Mult_Unit::*;
 
-(* synthesize *)
-module mkBBD( BBD_IFC );
+module mkBBD( Funit_IFC );
 //	Integer fifo_depth = 64;
 
-	FIFOF#(MemData) fifo_in <- mkFIFOF();
-	FIFOF#(MemData) fifo_out <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_Ai <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_B  <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_C  <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_G  <- mkFIFOF();
 
-	Reg#(MemData)	dataval		<- mkReg(0);
-	Reg#(MemData)	counter		<- mkReg(0);
-	Reg#(MemData)	row_select 	<- mkReg(0);
+	Reg#(MatrixVector) sigma_G <- mkReg(unpack(0));
+	Reg#(MatrixVector) sigma_B <- mkReg(unpack(0));
 
 // Define a data structure for 4x4 matrix
 	Vector#(16, Reg#(Bit#(8))) matC 	<- replicateM ( mkReg(0));
@@ -56,14 +57,33 @@ module mkBBD( BBD_IFC );
 		matA  [8*counter+7 -16] <= fifo_in.first[63:56];
 	endrule
 
-	method Action push_data(MemData d0);
-		fifo_in.enq(d0);
+//--------------------------------------------------------------------------//
+//---------Start Methods Definition here------------------------------------//
+//--------------------------------------------------------------------------//
+
+	method Action push_Ai(MatrixVector d0);
+		fifo_Ai.enq(d0);
 	endmethod
 
-	method ActionValue#(MemData) get_data();
-		fifo_out.deq();
-		return fifo_out.first();
+	method Action push_B(MatrixVector d1);
+		fifo_B.enq(d1);
+	endmethod
+
+	method Action push_C(MatrixVector d2);
+		fifo_C.enq(d2);
+	endmethod
+
+	method Action push_G(MatrixVector d3);
+		fifo_G.enq(d3);
+	endmethod
+
+	method ActionValue#(MatrixVector) get_sigma_B();
+		return sigma_B;
 	endmethod	
+
+	method ActionValue#(MatrixVector) get_sigma_G();
+		return sigma_G;
+	endmethod
 
 endmodule // mkBBD
 
@@ -151,4 +171,4 @@ module mkBlockMult (MATMULT_IFC);
 	endmethod	
 endmodule
 
-endpackage : BBD
+endpackage : Funit
