@@ -1,11 +1,11 @@
 package Mult_Unit;
 
-module mkBlockMult (MATMULT_IFC);
-
 	import BBD_ifc::*;
 	import BRAM::*;
 	import Vector::*;
 	import FIFOF::*;
+
+module mkBlockMult (MATMULT_IFC);
 
 	FIFOF#(MatrixVector) matrix_in0 <- mkFIFOF();
 	FIFOF#(MatrixVector) matrix_in1 <- mkFIFOF();

@@ -6,55 +6,79 @@ import Vector::*;
 import FIFOF::*;
 import Mult_Unit::*;
 
-module mkBBD( Funit_IFC );
-//	Integer fifo_depth = 64;
+module mkFunit( FUNIT_IFC );
 
 	FIFOF#(MatrixVector) fifo_Ai <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_B  <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_C  <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_G  <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_CAi <- mkFIFOF();
 
-	Reg#(MatrixVector) sigma_G <- mkReg(unpack(0));
-	Reg#(MatrixVector) sigma_B <- mkReg(unpack(0));
+	FIFOF#(MatrixVector) fifo_sG <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_sB <- mkFIFOF();
 
-// Define a data structure for 4x4 matrix
-	Vector#(16, Reg#(Bit#(8))) matC 	<- replicateM ( mkReg(0));
-	Vector#(16, Reg#(Bit#(8))) matA 	<- replicateM ( mkReg(0));
+	// Define a data structure for 4x4 matrix
+	Vector#(16, Reg#(Bit#(8))) sigma_G 	<- replicateM ( mkReg(0));
+	Vector#(16, Reg#(Bit#(8))) sigma_B 	<- replicateM ( mkReg(0));
 
-//	MATINV_IFC matinv <- mkBlockInverse;
-	MATMULT_IFC matmult0 <- mkBlockMult;
-	MATMULT_IFC matmult1 <- mkBlockMult;
-	MATMULT_IFC matmult2 <- mkBlockMult;
+	MATMULT_IFC mult0 <- mkBlockMult;
+	MATMULT_IFC mult1 <- mkBlockMult;
+	MATMULT_IFC mult2 <- mkBlockMult;
 
-	rule countup ;
-		counter <= counter +1;
+	rule m0_in0 ;
+		mult0.push_data_d0(fifo_C.first());
+		fifo_C.deq();
 	endrule
 
-	rule matrix_mult (counter%16 == 0);
-			matmult.push_data_d0(readVReg(matrix_vec));
-			matmult.push_data_d1(readVReg(matrix_vec));
+	rule m0_in1 ;
+		mult0.push_data_d1(fifo_Ai.first());
+		fifo_Ai.deq();
 	endrule
 
-	rule matrix_in ( 0<= counter%16 && counter%16 <2);
-		matC  [8*counter  ]	<= fifo_in.first[ 7: 0];
-		matC  [8*counter+1]	<= fifo_in.first[15: 8];
-		matC  [8*counter+2]	<= fifo_in.first[23:16];
-		matC  [8*counter+3] <= fifo_in.first[31:24];
-		matC  [8*counter+4]	<= fifo_in.first[39:32];
-		matC  [8*counter+5]	<= fifo_in.first[47:40];
-		matC  [8*counter+6]	<= fifo_in.first[55:48];
-		matC  [8*counter+7] <= fifo_in.first[63:56];
+	rule m0_out ;
+		fifo_CAi.enq(mult0.get_data());
 	endrule
 
-	rule matrix_in ( 2 <= counter%16 && counter%16 <4);
-		matA  [8*counter   -16]	<= fifo_in.first[ 7: 0];
-		matA  [8*counter+1 -16]	<= fifo_in.first[15: 8];
-		matA  [8*counter+2 -16]	<= fifo_in.first[23:16];
-		matA  [8*counter+3 -16] <= fifo_in.first[31:24];
-		matA  [8*counter+4 -16]	<= fifo_in.first[39:32];
-		matA  [8*counter+5 -16]	<= fifo_in.first[47:40];
-		matA  [8*counter+6 -16]	<= fifo_in.first[55:48];
-		matA  [8*counter+7 -16] <= fifo_in.first[63:56];
+	rule m1_m2_in0;
+		mult1.push_data_d0(fifo_CAi.first());
+		mult2.push_data_d0(fifo_CAi.first());
+		fifo_CAi.deq();
+	endrule
+
+	rule m1_in1;
+		mult1.push_data_d1(fifo_G.first());
+		fifo_G.deq();
+	endrule
+
+	rule m2_in1;
+		mult2.push_data_d1(fifo_B.first());
+		fifo_B.deq();
+	endrule
+
+	rule m1_out ;
+		fifo_sG.enq(mult1.get_data());
+	endrule
+
+	rule m2_out ;
+		fifo_sB.enq(mult2.get_data());
+	endrule
+
+//------------------------------------------------------------------------//
+//-----------Sigma of individual terms------------------------------------//
+//------------------------------------------------------------------------//
+
+	rule add_sG;	
+		for(Integer i=0; i<16; i=i+1) begin
+			sigma_G[i] = sigma_G[i]+fifo_sG.first[i];
+		end
+		fifo_sG.deq();
+	endrule
+
+	rule add_sB;	
+		for(Integer i=0; i<16; i=i+1) begin
+			sigma_B[i] = sigma_B[i]+fifo_sB.first[i];
+		end
+		fifo_sB.deq();
 	endrule
 
 //--------------------------------------------------------------------------//
@@ -78,11 +102,13 @@ module mkBBD( Funit_IFC );
 	endmethod
 
 	method ActionValue#(MatrixVector) get_sigma_B();
-		return sigma_B;
-	endmethod	
+		return readVReg(sigma_G);
+		// Also make the regs zero
+	endmethod
 
 	method ActionValue#(MatrixVector) get_sigma_G();
-		return sigma_G;
+		return readVReg(sigma_B);
+		// Also make the regs zero
 	endmethod
 
 endmodule // mkBBD
@@ -110,65 +136,5 @@ module mkBlockInverse (MATINV_IFC);
 
 endmodule // mkBlockInverse
 */
-
-module mkBlockMult (MATMULT_IFC);
-
-	FIFOF#(MatrixVector) matrix_in0 <- mkFIFOF();
-	FIFOF#(MatrixVector) matrix_in1 <- mkFIFOF();
-	FIFOF#(MatrixVector) matrix_out <- mkFIFOF();
-//	Reg#(MatrixVector) m0 <- mkReg(unpack(0));
-//	Reg#(MatrixVector) m1 <- mkReg(unpack(0));
-	Vector#(16, Reg#(Bit#(8))) m0 <- replicateM ( mkReg(0));
-	Vector#(16, Reg#(Bit#(8))) m1 <- replicateM ( mkReg(0));
-
-	Reg#(Bool) started <- mkReg(False);
-	Reg#(Bool) finish <- mkReg(False);
-//	Reg#(MatrixVector) ret_val <- mkReg(unpack(0));
-	Vector#(16, Reg#(Bit#(8))) ret_val <- replicateM ( mkReg(0));
-
-	rule start_computation (!started);
-
-		let val0 = matrix_in0.first();
-		matrix_in0.deq();
-		writeVReg(m0, val0);
-
-		let val1 = matrix_in1.first();
-		matrix_in1.deq();
-		writeVReg(m1, val1);
-
-		started <= True;
-
-	endrule
-
-	rule do_computationl (started && !finish);
-		for(Integer i=0; i<16; i=i+1) begin
-//			ret_val[i] <= m0[i] + m1[i];
-			let j = i%4;
-			let k = i/4;
-
-			ret_val[i] <= 	m0[k]*m1[j]+m0[k+1]*m1[j+4] + m0[k+2]*m1[j+8] + m0[k+3]*m1[j+12];
-		end
-		finish <= True;
-	endrule
-	
-	rule finish_computation (finish);
-		matrix_out.enq(readVReg(ret_val));
-		started <= False;
-		finish <= False;
-	endrule
-
-	method Action push_data_d0(MatrixVector d0);
-		matrix_in0.enq(d0);
-	endmethod
-
-	method Action push_data_d1(MatrixVector d1);
-		matrix_in1.enq(d1);
-	endmethod
-	
-	method ActionValue#(MatrixVector) get_data();
-		matrix_out.deq();
-		return matrix_out.first();
-	endmethod	
-endmodule
 
 endpackage : Funit

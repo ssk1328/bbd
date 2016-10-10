@@ -26,7 +26,7 @@ package BBD_ifc;
 		method ActionValue#(MatrixVector) get_data();
 	endinterface
 
-	interface Funit_IFC;
+	interface FUNIT_IFC;
 		method Action push_Ai (MatrixVector d0);
 		method Action push_C  (MatrixVector d1);
 		method Action push_B  (MatrixVector d2);
