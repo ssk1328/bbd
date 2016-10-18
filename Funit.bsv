@@ -24,6 +24,7 @@ module mkFunit( FUNIT_IFC );
 	MATMULT_IFC mult0 <- mkBlockMult;
 	MATMULT_IFC mult1 <- mkBlockMult;
 	MATMULT_IFC mult2 <- mkBlockMult;
+	MATINV_IFC inv0 <- mkBlockInverse;
 
 	rule m0_in0 ;
 		mult0.push_data_d0(fifo_C.first());

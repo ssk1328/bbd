@@ -39,7 +39,6 @@ module mkBlockMult (MATMULT_IFC);
 //			ret_val[i] <= m0[i] + m1[i];
 			let j = i%4;
 			let k = i/4;
-
 			ret_val[i] <= 	m0[k]*m1[j]+m0[k+1]*m1[j+4] + m0[k+2]*m1[j+8] + m0[k+3]*m1[j+12];
 		end
 		finish <= True;
@@ -67,6 +66,7 @@ module mkBlockMult (MATMULT_IFC);
 		matrix_out.deq();
 		return matrix_out.first();
 	endmethod	
+
 endmodule
 
 endpackage
