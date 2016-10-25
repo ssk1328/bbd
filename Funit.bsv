@@ -5,17 +5,20 @@ import BRAM::*;
 import Vector::*;
 import FIFOF::*;
 import Mult_Unit::*;
+import Inv_Unit::*;
 
 module mkFunit( FUNIT_IFC );
 
+	FIFOF#(MatrixVector) fifo_A  <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_Ai <- mkFIFOF();
-	FIFOF#(MatrixVector) fifo_B  <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_Ai_out <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_C  <- mkFIFOF();
-	FIFOF#(MatrixVector) fifo_G  <- mkFIFOF();
 	FIFOF#(MatrixVector) fifo_CAi <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_B  <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_G  <- mkFIFOF();
 
-	FIFOF#(MatrixVector) fifo_sG <- mkFIFOF();
-	FIFOF#(MatrixVector) fifo_sB <- mkFIFOF();
+	FIFOF#(MatrixVector) fifo_sG <- mkFIFOF();	//sum of B individual terms
+	FIFOF#(MatrixVector) fifo_sB <- mkFIFOF();	//sum of G individual terms
 
 	// Define a data structure for 4x4 matrix
 	Vector#(16, Reg#(Bit#(8))) sigma_G 	<- replicateM ( mkReg(0));
@@ -25,6 +28,17 @@ module mkFunit( FUNIT_IFC );
 	MATMULT_IFC mult1 <- mkBlockMult;
 	MATMULT_IFC mult2 <- mkBlockMult;
 	MATINV_IFC inv0 <- mkBlockInverse;
+
+	rule inv0_in ;
+		inv0.push_data(fifo_A.first());
+		fifo_A.deq();
+	endrule
+
+	rule inv0_out ;
+		let m_inv <- inv0.get_data();
+		fifo_Ai.enq(m_inv);
+		fifo_Ai_out.enq(m_inv);
+	endrule
 
 	rule m0_in0 ;
 		mult0.push_data_d0(fifo_C.first());
@@ -37,7 +51,8 @@ module mkFunit( FUNIT_IFC );
 	endrule
 
 	rule m0_out ;
-		fifo_CAi.enq(mult0.get_data());
+		let m0_out <- mult0.get_data;
+		fifo_CAi.enq(m0_out);
 	endrule
 
 	rule m1_m2_in0;
@@ -57,11 +72,13 @@ module mkFunit( FUNIT_IFC );
 	endrule
 
 	rule m1_out ;
-		fifo_sG.enq(mult1.get_data());
+		let m1_out <- mult1.get_data;
+		fifo_sG.enq(m1_out);
 	endrule
 
 	rule m2_out ;
-		fifo_sB.enq(mult2.get_data());
+		let m2_out <- mult2.get_data;
+		fifo_sB.enq(m2_out);
 	endrule
 
 //------------------------------------------------------------------------//
@@ -70,14 +87,14 @@ module mkFunit( FUNIT_IFC );
 
 	rule add_sG;	
 		for(Integer i=0; i<16; i=i+1) begin
-			sigma_G[i] = sigma_G[i]+fifo_sG.first[i];
+			sigma_G[i] <= sigma_G[i]+fifo_sG.first[i];
 		end
 		fifo_sG.deq();
 	endrule
 
 	rule add_sB;	
 		for(Integer i=0; i<16; i=i+1) begin
-			sigma_B[i] = sigma_B[i]+fifo_sB.first[i];
+			sigma_B[i] <= sigma_B[i]+fifo_sB.first[i];
 		end
 		fifo_sB.deq();
 	endrule
@@ -86,8 +103,8 @@ module mkFunit( FUNIT_IFC );
 //---------Start Methods Definition here------------------------------------//
 //--------------------------------------------------------------------------//
 
-	method Action push_Ai(MatrixVector d0);
-		fifo_Ai.enq(d0);
+	method Action push_A(MatrixVector d0);
+		fifo_A.enq(d0);
 	endmethod
 
 	method Action push_B(MatrixVector d1);
@@ -107,35 +124,21 @@ module mkFunit( FUNIT_IFC );
 		// Also make the regs zero
 	endmethod
 
+	method MatrixVector get_sigma_B_test();
+		return readVReg(sigma_G);
+	endmethod
+
 	method ActionValue#(MatrixVector) get_sigma_G();
 		return readVReg(sigma_B);
 		// Also make the regs zero
 	endmethod
 
-endmodule // mkBBD
-
-
-/*
-module mkBlockInverse (MATINV_IFC);	
-
-	Integer fifo_depth = 4;
-	FIFOF#(MatrixVector) fifo_in <- mkSizedFIFOF(fifo_depth);
-
-	Reg#(MatrixVector) matrix_vec <- mkReg(unpack(0));
-
-	rule matrix_solve;
-		for (Integer i =0; i < 16; i=i+1) begin
-//			matrix_vec[8*(i+1):8*i] <= matrix_vec[8*(i+1):8*i] + fifo_in.first[8*(i+1):8*i];
-//			matrix_vec[i] = matrix_vec[i] + fifo_in.first[(8*i+8): 8*i];
-		end
-		fifo_in.deq;
-	endrule
-
-	method Action push_data(MatrixVector m1);
-		fifo_in.enq(m1);
+	method ActionValue#(MatrixVector) get_Ai();
+		let x = fifo_Ai.first();
+		fifo_Ai_out.deq();
+		return x;
 	endmethod
 
-endmodule // mkBlockInverse
-*/
+endmodule // mkBBD
 
 endpackage : Funit

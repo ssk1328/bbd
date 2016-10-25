@@ -4,9 +4,7 @@ package BBD_ifc;
 
 	typedef Int#(16) MemAddress;
 	typedef Bit#(64) MemData;
-	typedef Int#(8) MatrixValue;
-//	Integer vector_size = 16*8;
-	typedef Bit#(128)  Matrix;
+	typedef Bit#(8) MatrixValue;
 	typedef Vector#(16, MatrixValue) MatrixVector;
 
 
@@ -28,12 +26,15 @@ package BBD_ifc;
 	endinterface
 
 	interface FUNIT_IFC;
-		method Action push_Ai (MatrixVector d0);
+		method Action push_A  (MatrixVector d0);
 		method Action push_C  (MatrixVector d1);
 		method Action push_B  (MatrixVector d2);
 		method Action push_G  (MatrixVector d3);
+		method MatrixVector get_sigma_B_test();
 		method ActionValue#(MatrixVector) get_sigma_B();
 		method ActionValue#(MatrixVector) get_sigma_G();
+		method ActionValue#(MatrixVector) get_Ai();
+
 	endinterface
 
 endpackage
